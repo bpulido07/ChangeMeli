@@ -1,0 +1,80 @@
+SELECT A.*
+FROM pruebasbrandon.customers a
+INNER JOIN pruebasbrandon.items B ON (B.SELLER_ID = A.ID_CUSTOMERS)
+WHERE A.DATE_OF_BIRTH = SYSDATE() /*'1994-10-25'*/
+AND B.PRICE_IN_CENTS > '1500'
+AND B.CREATED_AT BETWEEN '2020-01-01' AND '2020-01-31'
+;
+
+
+SELECT  
+B.MES,
+B.ANIO,
+A.FIRST_NAME,
+A.LAST_NAME,
+B.CAN_VEN,
+MAX(B.TOTAL_VEN)
+FROM pruebasbrandon.customers A
+INNER JOIN (SELECT 
+			B.SELLER_ID  ,
+            B.ID_ITEMS,
+			Month(B.CREATED_AT) AS MES,
+			YEAR(B.CREATED_AT) AS ANIO,
+			COUNT(B.STOCK) AS CAN_VEN,
+			SUM(B.PRICE_IN_CENTS) AS TOTAL_VEN
+			FROM pruebasbrandon.items B
+			WHERE B.NAME = 'CELULARES'
+            AND YEAR(B.CREATED_AT) = '2020'
+			group by B.SELLER_ID ) B  ON (B.SELLER_ID = A.ID_CUSTOMERS) 
+INNER JOIN pruebasbrandon.items_categories C ON C.ITEM_ID = B.ID_ITEMS
+INNER JOIN pruebasbrandon.categories D ON D.ID_CATEGORIA = C.CATEGORIA_ID
+GROUP BY 
+B.MES,
+B.ANIO,
+A.FIRST_NAME,
+A.LAST_NAME,
+B.CAN_VEN
+LIMIT 5
+;
+
+CREATE TABLE PRUEBASBRANDON.PoblarTabla (
+ID INT NOT NULL AUTO_INCREMENT,
+ID_ITEMS int,
+PRICE INT,
+STATUS VARCHAR(10) ,
+PRIMARY KEY (ID)
+);
+
+INSERT IGNORE INTO pruebasbrandon.PoblarTabla (ID_ITEMS,PRICE,STATUS ) SELECT B.ID_ITEMS, B.PRICE_IN_CENTS as PRICE,B.STATUS FROM pruebasbrandon.items b;
+;
+/* Otra manera que podemos hacer es  */
+
+INSERT INTO pruebasbrandon.PoblarTabla (ID_ITEMS,PRICE,STATUS) 
+
+SELECT 
+	ID_ITEMS, 
+	PRICE_IN_CENTS as PRICE,
+	STATUS 
+FROM pruebasbrandon.items
+
+ON DUPLICATE KEY UPDATE 
+ID_ITEMS = VALUES(ID_ITEMS),
+PRICE = VALUES(PRICE),
+STATUS = VALUES(STATUS)
+
+;
+
+
+/*Si fuera en otra base de datos como Teradata  lo ejecuto con el merge ya que puedo insertar y actualizar  */
+Merge pruebasbrandon.PoblarTabla A  USING pruebasbrandon.items B
+ON (A.ID_ITEMS = B.ID_ITEMS)
+WHEN MATCHED
+THEN UPDATE SET
+A.PRICE = B.PRICE_IN_CENTS,
+A.STATUS = B.STATUS
+WHEN NOT MATCHED
+THEN THEN INSERT (ID_ITEMS, PRICE,STATUS)
+VALUES(B.ID_ITEMS, B.PRICE_IN_CENTS,B.STATUS)
+WHEN NOT MATCHED BY SOURCE
+THEN DELETE;
+
